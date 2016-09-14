@@ -1,5 +1,6 @@
 ( function () {
     'use strict';
+
     var OSG = window.OSG;
     var osg = OSG.osg;
     var osgDB = OSG.osgDB;
@@ -54,8 +55,6 @@
             'shadowStatic': false,
             'disableShadows': false,
             'basicScene': false,
-            'shadowPass (ms)': 0.001,
-            'mainPass (ms)': 0.001,
 
             logCamLight: function () {
                 var example = this[ 'exampleObj' ];
@@ -237,8 +236,8 @@
                     lightPos[ 1 ] = y * this._positionY;
                     lightPos[ 2 ] = z * this._positionZ;
                     // lightDir = [ 0.0, -15.0, -1.0 ];
-                    lightDir = osg.Vec3.sub( lightTarget, lightPos, [] );
-                    osg.Vec3.normalize( lightDir, lightDir );
+                    lightDir = osg.vec3.sub( osg.vec3.create(), lightTarget, lightPos );
+                    osg.vec3.normalize( lightDir, lightDir );
                     break;
                 case 'Translate':
                     lightPos[ 0 ] = x * this._positionZ;
@@ -248,13 +247,13 @@
                     break;
                 case 'Nod':
                     lightTarget[ 1 ] = y * 180.0;
-                    lightDir = osg.Vec3.sub( lightTarget, lightPos, [] );
-                    osg.Vec3.normalize( lightDir, lightDir );
+                    lightDir = osg.vec3.sub( osg.vec3.create(), lightTarget, lightPos );
+                    osg.vec3.normalize( lightDir, lightDir );
                     //lightDir = [ 1.0 * x, -5.0 * x, -1.0 ];
                     break;
                 }
 
-                osg.Vec3.normalize( lightDir, lightDir );
+                osg.vec3.normalize( lightDir, lightDir );
 
                 if ( this._directLightChange ) {
                     var lightSource = node;
@@ -263,7 +262,7 @@
 
                     //best don't overwrite the direction bit on pos[3]
                     // l.setPosition( lightPos );
-                    osg.Vec3.copy( lightPos, l.getPosition() );
+                    osg.vec3.copy( l.getPosition(), lightPos );
 
                 }
             }
@@ -274,23 +273,23 @@
             //
             var up = this._up; //   camera up
             // Check it's not coincident with lightDir
-            if ( Math.abs( osg.Vec3.dot( up, lightDir ) ) >= 1.0 ) {
+            if ( Math.abs( osg.vec3.dot( up, lightDir ) ) >= 1.0 ) {
                 // another camera up
                 up = [ 1.0, 0.0, 0.0 ];
             }
 
             var lightTargetDebug = this._lightTarget;
-            //osg.Vec3.mult( lightDir, 50, lightTargetDebug );
-            //osg.Vec3.add( lightPos, lightTargetDebug, lightTargetDebug );
+            //osg.vec3.mult( lightDir, 50, lightTargetDebug );
+            //osg.vec3.add( lightPos, lightTargetDebug, lightTargetDebug );
 
             var lightMatrix = this._debugNode.getMatrix();
-            osg.Matrix.makeLookAt( lightPos, lightTargetDebug, up, lightMatrix );
-            osg.Matrix.inverse( lightMatrix, lightMatrix );
+            osg.mat4.lookAt( lightMatrix, lightPos, lightTargetDebug, up );
+            osg.mat4.invert( lightMatrix, lightMatrix );
             //
 
             if ( !this._directLightChange ) {
                 var lightNode = node.getParents()[ 0 ];
-                osg.Matrix.copy( lightMatrix, lightNode.getMatrix() );
+                osg.mat4.copy( lightNode.getMatrix(), lightMatrix );
             }
             // end light debug
 
@@ -346,13 +345,7 @@
             controller = gui.add( this._config, 'textureSize', textureSizes );
             controller.onChange( this.updateShadow.bind( this ) );
 
-            // shaders has to have under max varying decl
-            // max = this._maxVaryings -1
-            // usual shader is already 4 vertexColor, FragNormal, FragEye, FragTexcoord.
-            // each shadow is 1 more vec4 per shadow
-            var maxLights = ~~( ( this._maxVaryings - 1 ) - 4 );
-
-            controller = gui.add( this._config, 'lightNum', 1, maxLights ).step( 1 );
+            controller = gui.add( this._config, 'lightNum', 1, this._maxLights ).step( 1 );
             controller.onChange( this.updateShadow.bind( this ) );
 
             controller = gui.add( this._config, 'lightType', [ 'Spot',
@@ -563,7 +556,7 @@
         },
 
         updateLightsEnable: function () {
-            var l, numLights = ~~( this._config[ 'lightNum' ] );
+            var l, numLights = this._config.lightNum;
 
             while ( this._maxVaryings < ( numLights + 4 ) ) {
                 numLights--;
@@ -692,7 +685,7 @@
         updateShadowMapSize: function () {
 
             var shadowMap;
-            var mapsize = ~~( this._config[ 'textureSize' ] );
+            var mapsize = this._config.textureSize;
             if ( this._previousTextureSize !== mapsize ) {
 
                 var l = this._lights.length;
@@ -719,7 +712,7 @@
         },
         updateShadowTechniqueMode: function () {
 
-            var l, numLights = ~~( this._config[ 'lightNum' ] );
+            var l, numLights = this._config.lightNum;
             var shadowMap;
 
             if ( this._previousTech !== this._config[ 'shadow' ] ) {
@@ -784,7 +777,7 @@
             }
             if ( this._updateRTT || ( this._previousRTT === false && this._config[ 'debugRTT' ] ) ) {
 
-                var l, numLights = ~~( this._config[ 'lightNum' ] );
+                var l, numLights = this._config.lightNum;
 
                 // make sure we have latest one
                 this._RTT = [];
@@ -807,8 +800,6 @@
          * with a single callback for all ui user changes
          */
         updateShadow: function () {
-
-            this.resetPerfTimer();
 
             if ( this._config[ 'disableShadows' ] !== this._previousDisable ) {
                 if ( this._config[ 'disableShadows' ] ) {
@@ -883,11 +874,11 @@
 
 
             var matrixDest = this._composerDebugCamera.getProjectionMatrix();
-            osg.Matrix.makeOrtho( 0, optionsDebug.screenW, 0, optionsDebug.screenH, -5, 5, matrixDest );
+            osg.mat4.ortho( matrixDest, 0, optionsDebug.screenW, 0, optionsDebug.screenH, -5, 5 );
             this._composerDebugCamera.setProjectionMatrix( matrixDest ); //not really needed until we do matrix caches
 
             matrixDest = this._composerDebugCamera.getViewMatrix();
-            osg.Matrix.makeTranslate( 0, 0, 0, matrixDest );
+            osg.mat4.fromTranslation( matrixDest, [ 0, 0, 0 ] );
             this._composerDebugCamera.setViewMatrix( matrixDest );
             this._composerDebugCamera.setRenderOrder( osg.Camera.NESTED_RENDER, 0 );
             this._composerDebugCamera.setReferenceFrame( osg.Transform.ABSOLUTE_RF );
@@ -980,8 +971,8 @@
                     var modelSubNodeTrans = new osg.MatrixTransform();
                     var modelSubNode = new osg.Node();
                     modelSubNode._name = 'material-test_model_1';
-                    modelSubNodeTrans.setMatrix( osg.Matrix.makeScale( 0.1, 0.1, 0.1, [] ) );
-                    osg.Matrix.setTrans( modelSubNodeTrans.getMatrix(), 0, 0, 0 );
+                    modelSubNodeTrans.setMatrix( osg.mat4.fromScaling( osg.mat4.create(), [ 0.1, 0.1, 0.1 ] ) );
+                    osg.mat4.setTranslation( modelSubNodeTrans.getMatrix(), [ 0, 0, 0 ] );
                     modelSubNodeTrans.addChild( model );
                     modelSubNode.addChild( modelSubNodeTrans );
                     modelNode.addChild( modelSubNode );
@@ -990,8 +981,8 @@
                     modelSubNode = new osg.Node();
                     modelSubNodeTrans = new osg.MatrixTransform();
                     modelSubNode._name = 'material-test_model_3';
-                    modelSubNodeTrans.setMatrix( osg.Matrix.makeScale( 0.3, 0.3, 0.3, [] ) );
-                    osg.Matrix.setTrans( modelSubNodeTrans.getMatrix(), dist, 0, 0 );
+                    modelSubNodeTrans.setMatrix( osg.mat4.fromScaling( osg.mat4.create(), [ 0.3, 0.3, 0.3 ] ) );
+                    osg.mat4.setTranslation( modelSubNodeTrans.getMatrix(), [ dist, 0, 0 ] );
                     modelSubNodeTrans.addChild( model );
                     modelSubNode.addChild( modelSubNodeTrans );
                     modelNode.addChild( modelSubNode );
@@ -999,8 +990,8 @@
                         modelSubNode = new osg.Node();
                         modelSubNodeTrans = new osg.MatrixTransform();
                         modelSubNode._name = 'material-test_model_3';
-                        modelSubNodeTrans.setMatrix( osg.Matrix.makeScale( 0.5, 0.5, 0.5, [] ) );
-                        osg.Matrix.setTrans( modelSubNodeTrans.getMatrix(), -dist, 0, -5 );
+                        modelSubNodeTrans.setMatrix( osg.mat4.fromScaling( osg.mat4.create(), [ 0.5, 0.5, 0.5 ] ) );
+                        osg.mat4.setTranslation( modelSubNodeTrans.getMatrix(), [ -dist, 0, -5 ] );
                         modelSubNodeTrans.addChild( model );
                         modelSubNode.addChild( modelSubNodeTrans );
                         modelNode.addChild( modelSubNode );
@@ -1008,8 +999,8 @@
                         modelSubNode = new osg.Node();
                         modelSubNode._name = 'material-test_model_2';
                         modelSubNodeTrans = new osg.MatrixTransform();
-                        modelSubNodeTrans.setMatrix( osg.Matrix.makeScale( 0.7, 0.7, 0.7, [] ) );
-                        osg.Matrix.setTrans( modelSubNodeTrans.getMatrix(), dist * 2, 0.7, 0.7 );
+                        modelSubNodeTrans.setMatrix( osg.mat4.fromScaling( osg.mat4.create(), [ 0.7, 0.7, 0.7 ] ) );
+                        osg.mat4.setTranslation( modelSubNodeTrans.getMatrix(), [ dist * 2, 0.7, 0.7 ] );
                         modelSubNodeTrans.addChild( model );
                         modelSubNode.addChild( modelSubNodeTrans );
                         modelNode.addChild( modelSubNode );
@@ -1028,7 +1019,7 @@
             var cube = osg.createTexturedBoxGeometry( 0, 0, 0, size, size, size * 10 );
 
             var cubeSubNodeTrans = new osg.MatrixTransform();
-            cubeSubNodeTrans.setMatrix( osg.Matrix.makeTranslate( 0, 0, dist / 2, [] ) );
+            cubeSubNodeTrans.setMatrix( osg.mat4.fromTranslation( osg.mat4.create(), [ 0, 0, dist / 2 ] ) );
             var cubeSubNode = new osg.Node();
             cubeSubNode.addChild( cubeSubNodeTrans );
             cubeSubNodeTrans.addChild( cube );
@@ -1038,7 +1029,7 @@
             //cubeNode.addChild( cubeSubNode );
             if ( !this._config[ 'basicScene' ] ) {
                 cubeSubNodeTrans = new osg.MatrixTransform();
-                cubeSubNodeTrans.setMatrix( osg.Matrix.makeTranslate( dist, 0, 0, [] ) );
+                cubeSubNodeTrans.setMatrix( osg.mat4.fromTranslation( osg.mat4.create(), [ dist, 0, 0 ] ) );
                 cubeSubNode = new osg.Node();
                 cubeSubNode.addChild( cubeSubNodeTrans );
                 cubeSubNodeTrans.addChild( cube );
@@ -1046,7 +1037,7 @@
                 cubeNode.addChild( cubeSubNode );
 
                 cubeSubNodeTrans = new osg.MatrixTransform();
-                cubeSubNodeTrans.setMatrix( osg.Matrix.makeTranslate( dist, dist, 0, [] ) );
+                cubeSubNodeTrans.setMatrix( osg.mat4.fromTranslation( osg.mat4.create(), [ dist, dist, 0 ] ) );
                 cubeSubNode = new osg.Node();
                 cubeSubNode.addChild( cubeSubNodeTrans );
                 cubeSubNodeTrans.addChild( cube );
@@ -1054,7 +1045,7 @@
                 cubeNode.addChild( cubeSubNode );
 
                 cubeSubNodeTrans = new osg.MatrixTransform();
-                cubeSubNodeTrans.setMatrix( osg.Matrix.makeTranslate( 0, dist, 0, [] ) );
+                cubeSubNodeTrans.setMatrix( osg.mat4.fromTranslation( osg.mat4.create(), [ 0, dist, 0 ] ) );
                 cubeSubNode = new osg.Node();
                 cubeSubNode.addChild( cubeSubNodeTrans );
                 cubeSubNodeTrans.addChild( cube );
@@ -1062,7 +1053,7 @@
                 cubeNode.addChild( cubeSubNode );
 
                 cubeSubNodeTrans = new osg.MatrixTransform();
-                cubeSubNodeTrans.setMatrix( osg.Matrix.makeTranslate( -dist, dist, -dist / 2, [] ) );
+                cubeSubNodeTrans.setMatrix( osg.mat4.fromTranslation( osg.mat4.create(), [ -dist, dist, -dist / 2 ] ) );
                 cubeSubNode = new osg.Node();
                 cubeSubNode.addChild( cubeSubNodeTrans );
                 cubeSubNodeTrans.addChild( cube );
@@ -1103,7 +1094,7 @@
             for ( var wG = 0; wG < numPlanes; wG++ ) {
                 for ( var wH = 0; wH < numPlanes; wH++ ) {
                     var groundSubNodeTrans = new osg.MatrixTransform();
-                    groundSubNodeTrans.setMatrix( osg.Matrix.makeTranslate( wG * groundSize - groundSize * numPlanes * 0.5, wH * groundSize - groundSize * numPlanes * 0.5, -5.0, [] ) );
+                    groundSubNodeTrans.setMatrix( osg.mat4.fromTranslation( osg.mat4.create(), [ wG * groundSize - groundSize * numPlanes * 0.5, wH * groundSize - groundSize * numPlanes * 0.5, -5.0 ] ) );
                     // only node are culled in CullVisitor frustum culling
                     groundSubNode = new osg.Node();
                     groundSubNode.setName( 'groundSubNode_' + wG + '_' + wH );
@@ -1201,8 +1192,8 @@
             ////////////
             //light.setPosition( position );
             var dir = [ 0, 0, 0 ];
-            osg.Vec3.sub( position, target, dir );
-            osg.Vec3.normalize( dir, dir );
+            osg.vec3.sub( dir, position, target );
+            osg.vec3.normalize( dir, dir );
             //light.setDirection( dir );
             lightSource.addUpdateCallback( new LightUpdateCallback( light, this, lightNodemodelNode, position, dir ) );
 
@@ -1217,73 +1208,16 @@
             shadowMap.setShadowSettings( shadowSettings );
             this._shadowTechnique.push( shadowMap );
 
+            var shadowCam = shadowMap.getCamera();
+            var timerGPU = osg.TimerGPU.instance();
+            shadowCam.setInitialDrawCallback( timerGPU.start.bind( timerGPU, 'glshadows' + num ) );
+            shadowCam.setFinalDrawCallback( timerGPU.end.bind( timerGPU, 'glshadows' + num ) );
+
             // init is done by shadowscene, at first render
             //shadowMap.init();
 
         },
-        cameraPerfStart: function () {
-            this._timerGPU.start( 'mainPass (ms)' );
-        },
-        cameraPerfEnd: function () {
-            this._timerGPU.end( 'mainPass (ms)' );
-        },
 
-        perfLog: function ( average, queryID ) {
-            // average is in nanosecond (ns)
-            // but displayed in (ms)
-            this._config[ queryID ] = average / 10e6;
-        },
-        resetPerfTimer: function () {
-            if ( this._timerGPU.isEnabled() ) {
-                // any change, any,
-                // and we reset timers average
-                if ( this._timerGPU.supportInterleaveQuery() ) {
-                    this._timerGPU.reset( 'shadowPass (ms)' );
-                }
-                this._timerGPU.reset( 'mainPass (ms)' );
-                this._config[ 'shadowPass (ms)' ] = 0.0;
-            }
-        },
-        initPerfTiming: function () {
-
-
-            this._timerGPU = osg.TimerGPU.instance( this._glContext );
-
-            if ( !this._timerGPU.isEnabled() ) return;
-
-            this._timerGPU.setCallback(
-                this.perfLog.bind( this )
-            );
-
-
-            // perf on 1st shadow map
-            if ( this._lights.length > 0 ) {
-
-                var st = this._shadowTechnique[ 0 ];
-
-                if ( this._timerGPU.supportInterleaveQuery() ) {
-
-                    st.getCamera().setInitialDrawCallback( function () {
-                        this._timerGPU.start( 'shadowPass (ms)' );
-                    }.bind( this ) );
-
-                    if ( this._timerGPU.supportInterleaveQuery() ) {
-                        st.getCamera().setFinalDrawCallback( function () {
-                            this._timerGPU.end( 'shadowPass (ms)' );
-                        }.bind( this ) );
-                    }
-
-                }
-
-            }
-
-            this._viewer.getCamera().setInitialDrawCallback( this.cameraPerfStart.bind( this ) );
-            this._viewer.getCamera().setFinalDrawCallback( this.cameraPerfEnd.bind( this ) );
-
-            this._gui.add( this._config, 'shadowPass (ms)' ).listen();
-            this._gui.add( this._config, 'mainPass (ms)' ).listen();
-
-        },
         /*
          * main sample scene shadow code using OSG interface
          */
@@ -1322,7 +1256,7 @@
             // need camera position in world too
             this._config[ 'camera' ] = this._viewer.getCamera();
 
-            var numLights = ~~( this._config[ 'lightNum' ] );
+            var numLights = this._config.lightNum;
             var lightScale = 1.0 / numLights - 1e-4;
 
 
@@ -1350,17 +1284,56 @@
             return group;
         },
 
+        getOptionsStats: function () {
+            var values = {
+                gltotalframe: {
+                    caption: 'Total frame',
+                    average: true
+                }
+            };
+
+            var groupValues = [ 'gltotalframe' ];
+
+            for ( var i = 0; i < this._maxLights; ++i ) {
+                var shname = 'glshadows' + i;
+                values[ shname ] = {
+                    caption: 'Shadow ' + i,
+                    average: true
+                };
+                groupValues.push( shname );
+            }
+
+            var groups = [ {
+                caption: 'GL Frame',
+                values: groupValues
+            } ];
+
+            return {
+                values: values,
+                groups: groups
+            };
+        },
+
         /*
          * standard run scene, but for float tex support and shader loading
          */
         run: function ( canvas ) {
 
+            var caps = osg.WebGLCaps.instance();
+            this._maxVaryings = caps.getWebGLParameter( 'MAX_VARYING_VECTORS' );
+            this._maxTextureSize = caps.getWebGLParameter( 'MAX_TEXTURE_SIZE' );
+            this._maxTextureUnit = caps.getWebGLParameter( 'MAX_TEXTURE_IMAGE_UNITS' );
+            // shaders has to have under max varying decl max = this._maxVaryings -1
+            // usual shader is already 4 vertexColor, FragNormal, FragEye, FragTexcoord. each shadow is 1 more vec4 per shadow
+            this._maxLights = Math.min( this._maxTextureUnit - 1, this._maxVaryings - 5 );
 
-            var viewer;
-            viewer = new osgViewer.Viewer( canvas, this._osgOptions );
+            var opt = {
+                rstats: this.getOptionsStats()
+            };
+
+            var viewer = new osgViewer.Viewer( canvas, opt );
             this._canvas = canvas;
             this._viewer = viewer;
-
 
             viewer.setLightingMode( osgViewer.View.LightingMode.NO_LIGHT );
             viewer.init();
@@ -1368,9 +1341,6 @@
             viewer.getCamera().setComputeNearFar( true );
 
             this._glContext = viewer.getGraphicContext();
-
-            this._maxVaryings = osg.WebGLCaps.instance().getWebGLParameter( 'MAX_VARYING_VECTORS' );
-            this._maxTextureSize = osg.WebGLCaps.instance().getWebGLParameter( 'MAX_TEXTURE_SIZE' );
 
             this._floatLinearTextureSupport = osg.WebGLCaps.instance().hasLinearFloatRTT();
             this._floatTextureSupport = osg.WebGLCaps.instance().hasFloatRTT();
@@ -1393,8 +1363,15 @@
                 graphDebug.createGraph( scene );
             }
 
+
+            var timerGPU = osg.TimerGPU.instance();
+            if ( timerGPU.isEnabled() ) {
+                var cam = this._viewer.getCamera();
+                cam.setInitialDrawCallback( timerGPU.start.bind( timerGPU, 'gltotalframe' ) );
+                cam.setFinalDrawCallback( timerGPU.end.bind( timerGPU, 'gltotalframe' ) );
+            }
+
             this.initDatGUI();
-            this.initPerfTiming();
 
         }
     };

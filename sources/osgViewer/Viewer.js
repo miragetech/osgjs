@@ -1,9 +1,10 @@
 'use strict';
 var Notify = require( 'osg/Notify' );
-var Matrix = require( 'osg/Matrix' );
+var mat4 = require( 'osg/glMatrix' ).mat4;
 var Options = require( 'osg/Options' );
 var P = require( 'bluebird' );
 var Timer = require( 'osg/Timer' );
+var TimerGPU = require( 'osg/TimerGPU' );
 var UpdateVisitor = require( 'osg/UpdateVisitor' );
 var MACROUTILS = require( 'osg/Utils' );
 var Texture = require( 'osg/Texture' );
@@ -13,6 +14,7 @@ var EventProxy = require( 'osgViewer/eventProxy/EventProxy' );
 var View = require( 'osgViewer/View' );
 var WebGLUtils = require( 'osgViewer/webgl-utils' );
 var WebGLDebugUtils = require( 'osgViewer/webgl-debug' );
+var requestFile = require( 'osgDB/requestFile' );
 
 
 var OptionsURL = ( function () {
@@ -91,7 +93,6 @@ var OptionsURL = ( function () {
 
 
 var getGLSLOptimizer = function () {
-    if ( !window.$ ) return P.reject( 'jquery not found to load GLSL optimizer' );
 
     var deferOptimizeGLSL = P.defer();
     window.deferOptimizeGLSL = deferOptimizeGLSL;
@@ -121,18 +122,17 @@ var getGLSLOptimizer = function () {
         '        };'
     ].join( '\n' );
 
-    var $ = window.$;
     Notify.log( 'try to load glsl optimizer' );
     var url = 'https://raw.githubusercontent.com/zz85/glsl-optimizer/gh-pages/glsl-optimizer.js';
-    $.get( url )
-        .done( function ( script ) {
-            /*jshint evil: true */
-            eval( mod + script );
-            /*jshint evil: false */
-        } )
-        .fail( function () {
-            deferOptimizeGLSL.reject();
-        } );
+    var promise = requestFile( url );
+    promise.then( function ( script ) {
+        /*jshint evil: true */
+        eval( mod + script );
+        /*jshint evil: false */
+    } ).catch( function () {
+        deferOptimizeGLSL.reject();
+    } );
+
     return deferOptimizeGLSL.promise;
 };
 
@@ -310,7 +310,13 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
         if ( !options.getBoolean( 'stats' ) )
             return;
 
-        this._stats = createStats();
+        this._stats = createStats( options );
+
+        TimerGPU.instance( this.getGraphicContext() ).setCallback( this.callbackTimerGPU.bind( this ) );
+    },
+
+    callbackTimerGPU: function ( average, queryID ) {
+        if ( this._stats ) this._stats.rStats( queryID ).set( average / 1e6 );
     },
 
     getViewerStats: function () {
@@ -326,15 +332,28 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
         if ( this.getCamera() ) {
 
             var stats = this._stats;
+            var timerGPU = stats && TimerGPU.instance( this.getGraphicContext() );
+
             var renderer = this.getCamera().getRenderer();
 
             if ( stats ) stats.rStats( 'cull' ).start();
+
             renderer.cull();
+
             if ( stats ) stats.rStats( 'cull' ).end();
 
-            if ( stats ) stats.rStats( 'render' ).start();
+            if ( stats ) {
+                timerGPU.pollQueries();
+                timerGPU.start( 'glframe' );
+                stats.rStats( 'render' ).start();
+            }
+
             renderer.draw();
-            if ( stats ) stats.rStats( 'render' ).end();
+
+            if ( stats ) {
+                stats.rStats( 'render' ).end();
+                timerGPU.end( 'glframe' );
+            }
 
             if ( stats ) {
                 var cullVisitor = renderer.getCullVisitor();
@@ -344,7 +363,6 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
                 stats.rStats( 'cullnode' ).set( cullVisitor._numNode );
                 stats.rStats( 'cullightsource' ).set( cullVisitor._numLightSource );
                 stats.rStats( 'cullgeometry' ).set( cullVisitor._numGeometry );
-
                 stats.rStats( 'pushstateset' ).set( renderer.getState()._numPushStateSet );
             }
 
@@ -399,11 +417,13 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
 
         var stats = this._stats;
 
-        if ( stats ) stats.rStats( 'frame' ).start();
-        if ( stats ) stats.glS.start();
+        if ( stats ) {
+            stats.rStats( 'frame' ).start();
+            stats.glS.start();
 
-        if ( stats ) stats.rStats( 'rAF' ).tick();
-        if ( stats ) stats.rStats( 'FPS' ).frame();
+            stats.rStats( 'rAF' ).tick();
+            stats.rStats( 'FPS' ).frame();
+        }
 
     },
 
@@ -417,13 +437,12 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
         // update texture stats
         if ( rStats ) {
             Texture.getTextureManager( this.getGraphicContext() ).updateStats( frameNumber, rStats );
+            rStats( 'frame' ).end();
+
+            rStats( 'rStats' ).start();
+            rStats().update();
+            rStats( 'rStats' ).end();
         }
-
-        if ( rStats ) rStats( 'frame' ).end();
-
-        if ( rStats ) rStats( 'rStats' ).start();
-        if ( rStats ) rStats().update();
-        if ( rStats ) rStats( 'rStats' ).end();
 
     },
 
@@ -452,7 +471,7 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
         // Update Manipulator/Event
         if ( this.getManipulator() ) {
             this.getManipulator().update( this._updateVisitor );
-            Matrix.copy( this.getManipulator().getInverseMatrix(), this.getCamera().getViewMatrix() );
+            mat4.copy( this.getCamera().getViewMatrix(), this.getManipulator().getInverseMatrix() );
         }
 
         if ( this.checkNeedToDoFrame() || canvasSizeChanged ) {
@@ -570,7 +589,7 @@ Viewer.prototype = MACROUTILS.objectInherit( View.prototype, {
         vp.setViewport( Math.round( vp.x() * widthChangeRatio ), Math.round( vp.y() * heightChangeRatio ), Math.round( vp.width() * widthChangeRatio ), Math.round( vp.height() * heightChangeRatio ) );
 
         if ( aspectRatioChange !== 1.0 ) {
-            Matrix.preMult( camera.getProjectionMatrix(), Matrix.makeScale( 1.0 / aspectRatioChange, 1.0, 1.0, Matrix.create() ) );
+            mat4.mul( camera.getProjectionMatrix(), camera.getProjectionMatrix(), mat4.fromScaling( mat4.create(), [ 1.0 / aspectRatioChange, 1.0, 1.0 ] ) );
         }
 
         return true;
