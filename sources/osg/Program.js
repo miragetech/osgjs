@@ -265,7 +265,8 @@ Program.prototype = MACROUTILS.objectLibraryClass( MACROUTILS.objectInherit( GLO
         if ( r !== null ) {
             for ( var i = 0, l = r.length; i < l; i++ ) {
                 var uniform = r[ i ].match( /uniform\s+\w+\s+(\w+)/ )[ 1 ];
-                var uniformName = r[ i ].match( /uniform\s+\w+\s+(\w+)(\s?\[.*?\])?/ )[ 1 ];
+                var uniformName = r[ i ].match( /uniform\s+\w+\s+(\w+((\s)?\[(.*?)\])?)/ )[ 1 ];
+                //var uniformName = r[ i ].match( /uniform\s+\w+\s+(\w+)(\s?\[.*?\])?/ )[ 1 ];
                 var location = gl.getUniformLocation( this._program, uniform );
                 if ( location !== undefined && location !== null ) {
                     if ( map[ uniformName ] === undefined ) {
