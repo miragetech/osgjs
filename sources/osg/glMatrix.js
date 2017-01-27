@@ -324,13 +324,14 @@ mat4.getLookAt = ( function () {
 
         var d = distance !== undefined ? distance : 1.0;
         mat4.invert( inv, matrix );
-        vec3.transformMat4( eye, v1, inv );
-        vec3.transformMat4R( up, v2, matrix );
-        vec3.transformMat4R( center, v3, matrix );
+        mat4.getTranslation( eye, inv );
+        vec3.transformMat4Rotate( up, v2, matrix );
+        vec3.transformMat4Rotate( center, v3, matrix );
         vec3.normalize( center, center );
         vec3.add( center, vec3.scale( v1, center, d ), eye );
     };
 } )();
+
 
 mat4.getFrustumPlanes = ( function () {
 
