@@ -40,10 +40,14 @@ vec3.init = function ( out ) {
     return vec3.set( out, 0.0, 0.0, 0.0 );
 };
 
-vec3.transformMat4R = function ( out, v, m ) {
-    out[ 0 ] = m[ 0 ] * v[ 0 ] + m[ 1 ] * v[ 1 ] + m[ 2 ] * v[ 2 ];
-    out[ 1 ] = m[ 4 ] * v[ 0 ] + m[ 5 ] * v[ 1 ] + m[ 6 ] * v[ 2 ];
-    out[ 2 ] = m[ 8 ] * v[ 0 ] + m[ 9 ] * v[ 1 ] + m[ 10 ] * v[ 2 ];
+vec3.transformMat4Rotate = function ( out, v, m ) {
+    var x = v[ 0 ],
+        y = v[ 1 ],
+        z = v[ 2 ];
+    out[ 0 ] = m[ 0 ] * x + m[ 1 ] * y + m[ 2 ] * z;
+    out[ 1 ] = m[ 4 ] * x + m[ 5 ] * y + m[ 6 ] * z;
+    out[ 2 ] = m[ 8 ] * x + m[ 9 ] * y + m[ 10 ] * z;
+    return out;
 };
 
 vec3.valid = function ( a ) {
