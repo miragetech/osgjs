@@ -38,7 +38,7 @@ OrbitManipulatorHammerController.prototype = {
         };
         // Set a minimal thresold on pinch event, to be detected after pan
         hammer.get( 'pinch' ).set( {
-            threshold: 0.1
+            threshold: 1
         } );
         // Let the pan be detected with two fingers.
         hammer.get( 'pan' ).set( {
