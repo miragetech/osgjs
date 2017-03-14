@@ -129,9 +129,7 @@ OrbitManipulatorHammerController.prototype = {
                 return;
             }
             var gesture = event;
-            // make the dezoom faster
-            var zoomFactor = gesture.scale > self._lastScale ? self._zoomFactor : self._zoomFactor * 4.0;
-            var scale = ( gesture.scale - self._lastScale ) * zoomFactor;
+            var scale = ( gesture.scale - self._lastScale ) * self._zoomFactor;
             self._lastScale = gesture.scale;
 
             manipulator.getZoomInterpolator().setTarget( manipulator.getZoomInterpolator().getTarget()[ 0 ] - scale );

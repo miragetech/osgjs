@@ -39,7 +39,7 @@ CADManipulatorHammerController.prototype = {
         };
         // Set a minimal thresold on pinch event, to be detected after pan
         hammer.get( 'pinch' ).set( {
-            threshold: 1
+            threshold: 0.1
         } );
         // Let the pan be detected with two fingers.
         hammer.get( 'pan' ).set( {
@@ -150,9 +150,7 @@ CADManipulatorHammerController.prototype = {
             }
             var gesture = event;
 
-            // make the dezoom faster
-            var zoomFactor = gesture.scale > self._lastScale ? self._zoomFactor : self._zoomFactor * 4.0;
-            var scale = ( gesture.scale - self._lastScale ) * zoomFactor;
+            var scale = ( gesture.scale - self._lastScale ) * self._zoomFactor;
             self._lastScale = gesture.scale;
 
             manipulator.getZoomInterpolator().setTarget( manipulator.getZoomInterpolator().getTarget()[ 0 ] - scale );

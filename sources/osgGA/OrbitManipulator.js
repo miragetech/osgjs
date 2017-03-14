@@ -147,7 +147,10 @@ OrbitManipulator.prototype = MACROUTILS.objectInherit( Manipulator.prototype, {
 
         OrbitManipulator.ControllerList.forEach( function ( value ) {
             if ( OrbitManipulator[ value ] !== undefined ) {
-                self._controllerList[ value ] = new OrbitManipulator[ value ]( self );
+                if ( self._controllerList[ value ] )
+                    self._controllerList[ value ].init();
+                else
+                    self._controllerList[ value ] = new OrbitManipulator[ value ]( self );
             }
         } );
     },
