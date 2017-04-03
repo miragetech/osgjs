@@ -344,6 +344,7 @@ Node.prototype = MACROUTILS.objectLibraryClass( MACROUTILS.objectInherit( Object
         if ( child.getNumChildrenRequiringUpdateTraversal() > 0 || child.getUpdateCallbackList().length )
             this.setNumChildrenRequiringUpdateTraversal( this.getNumChildrenRequiringUpdateTraversal() - 1 );
 
+        this.dirtyBound();
     },
 
     traverse: function ( visitor ) {
