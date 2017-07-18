@@ -203,7 +203,7 @@ Utils.timeEnd = ( Notify.console.timeEnd || function ( name ) {
 
 } ).bind( Notify.console );
 
-Utils.timeStamp = ( Notify.console.timeStamp || Notify.console.markTimeline || function () {} ).bind( Notify.console );
+Utils.timeStamp = ( /* Notify.console.timeStamp || Notify.console.markTimeline || */ function () {} ).bind( Notify.console );
 Utils.profile = ( Notify.console.profile || function () {} ).bind( Notify.console );
 Utils.profileEnd = ( Notify.console.profileEnd || function () {} ).bind( Notify.console );
 
