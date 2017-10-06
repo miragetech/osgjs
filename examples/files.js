@@ -3,6 +3,7 @@
 var files = {
     Examples: [
         'animation',
+        '3dtiles',
         'camera',
         'camera-gallery',
         'cubemap',
