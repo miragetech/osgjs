@@ -89,7 +89,7 @@ ReaderWriterB3DM.prototype = {
             model.header.featureTableJsonByteLength = 0;
             model.header.featureTableBinaryByteLength = 0;
             console.warn('b3dm-legacy-header', 'This b3dm header is using the legacy format [batchLength] [batchTableByteLength]. The new format is [featureTableJsonByteLength] [featureTableBinaryByteLength] [batchTableJsonByteLength] [batchTableBinaryByteLength] from https://github.com/AnalyticalGraphicsInc/3d-tiles/blob/master/TileFormats/Batched3DModel/README.md.');
-        } else if (batchTableBinaryByteLength >= 570425344) {
+        } else if (model.header.batchTableBinaryByteLength >= 570425344) {
             // Second legacy check
             this._decoder.setOffset(this._decoder.getOffset() -  Uint32Array.BYTES_PER_ELEMENT );
             model.header.batchLength = model.header.batchTableJsonByteLength;

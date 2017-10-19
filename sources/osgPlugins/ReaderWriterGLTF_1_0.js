@@ -35,6 +35,8 @@ var vec3 =require( 'osg/glMatrix' ).vec3;
 var quat = require( 'osg/glMatrix' ).quat;
 var mat4 = require( 'osg/glMatrix' ).mat4;
 
+var BinaryDecoder = require( 'osgPlugins/BinaryDecoder' );
+
 var ReaderWriterGLTF = function () {
 
     // Contains all the needed glTF files (.gltf, .bin, etc...)
@@ -115,6 +117,9 @@ ReaderWriterGLTF.prototype = {
         this._stateSetMap = {};
         this._filesMap = new window.Map();
         this._inputReader = new Input();
+
+        this._decoder = new BinaryDecoder();
+        this._decoder.setLittleEndian( true );
     },
 
     setGLBModel: function ( glbModel ) {
@@ -125,7 +130,7 @@ ReaderWriterGLTF.prototype = {
         if ( this._filesMap.has( uri ) )
             return this._filesMap.get( uri );
 
-        if ( uri === 'data:,' && this._glbModel !== undefined )
+        if ( (uri === undefined || uri === 'data:,') && this._glbModel !== undefined )
             return this._glbModel.binary;
 
         var ext = uri.substr( uri.lastIndexOf( '.' ) + 1 );
@@ -254,6 +259,26 @@ ReaderWriterGLTF.prototype = {
             }
             return;
         } );
+    } ),
+
+    createTextureAndSetAttribFromBuffer: P.method( function ( buffer, stateSet, location, format, uniform ) {
+        if ( !buffer ) return;
+        var texture = new Texture();
+        // GLTF texture origin is correct
+        texture.setFlipY( false );
+        texture.setWrapS( 'REPEAT' );
+        texture.setWrapT( 'REPEAT' );
+
+
+        var image =  this._inputReader.readImageURL(buffer).then(function (data){
+          texture.setImage( data, format );
+          stateSet.setTextureAttributeAndModes( location, texture );
+          if ( uniform ) {
+            stateSet.addUniform( Uniform.createInt( location, uniform ) );
+          }
+          return;
+        });
+
     } ),
 
     /**
@@ -584,6 +609,20 @@ ReaderWriterGLTF.prototype = {
                 osgMaterial.setDiffuse( values.diffuse );
             else
                 return this.createTextureAndSetAttrib( values.diffuse, osgStateSet, 0 );
+        }
+
+        if (values.tex){
+            var texture = json.textures[ values.tex ];
+            var image = json.images[texture.source];
+            var bufferView = json.bufferViews[image.extensions.KHR_binary_glTF.bufferView];
+
+            this._decoder.setBuffer( this._glbModel.binary );
+            this._decoder.setOffset(bufferView.byteOffset);
+
+            var base64 = this._decoder.decodeStringArray(bufferView.byteLength);
+            base64 = 'data:' + image.extensions.KHR_binary_glTF.mimeType + ';base64,' + btoa( base64 );
+
+            return this.createTextureAndSetAttribFromBuffer(base64, osgStateSet, 0, ReaderWriterGLTF.TEXTURE_FORMAT[texture.format]);
         }
 
         geometryNode.stateset = osgStateSet;

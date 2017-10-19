@@ -9,8 +9,8 @@ var requestFile =  require( 'osgDB/requestFile' );
 var Notify = require( 'osg/notify' );
 var Registry = require( 'osgDB/Registry' );
 var BinaryDecoder = require( 'osgPlugins/BinaryDecoder' );
-// var ReaderWriterGLTF = require( 'osgPlugins/ReaderWriterGLTF_1_0' );
-var ReaderWriterGLTF = require( 'osgPlugins/ReaderWriterGLTF' );
+var ReaderWriterGLTF = require( 'osgPlugins/ReaderWriterGLTF_1_0' );
+// var ReaderWriterGLTF = require( 'osgPlugins/ReaderWriterGLTF' );
 
 var ReaderWriterGLB = function () {
     this._decoder = new BinaryDecoder();
