@@ -602,6 +602,10 @@ ReaderWriterGLTF.prototype = {
         if ( values.specular )
             osgMaterial.setSpecular( values.specular );
 
+        osgMaterial.setAmbient( [2,2,2,255] );
+        // osgMaterial.setEmission( values.emission );
+        // osgMaterial.setShininess( values.shininess );
+        // osgMaterial.setSpecular( values.specular );
         // Create a texture for the diffuse, if any
         if ( values.diffuse ) {
 
@@ -865,6 +869,7 @@ ReaderWriterGLTF.prototype = {
         // adding a PI / 2 rotation arround the X-axis
         var root = new MatrixTransform();
         root.setName( url );
+
 
         var json = JSON.parse( glTFFile );
         if ( !json ) return;

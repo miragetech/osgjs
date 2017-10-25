@@ -5,11 +5,20 @@
     var osg = OSG.osg;
     var osgViewer = OSG.osgViewer;
     var osgDB = OSG.osgDB;
+    var osgGA = OSG.osgGA;
+    var osgUtil = OSG.osgUtil;
     var ExampleOSGJS = window.ExampleOSGJS;
 
+    // // orlando
     var modelURL = 'https://d3h9zulrmcj1j6.cloudfront.net/Orlando_Cesium/root.json.3dt';
     var databasePath = 'https://d3h9zulrmcj1j6.cloudfront.net/Orlando_Cesium/';
 
+    // marseille
+    // var modelURL = 'https://d3h9zulrmcj1j6.cloudfront.net/Marseille_Cesium/root.json.3dt';
+    // var databasePath = 'https://d3h9zulrmcj1j6.cloudfront.net/Marseille_Cesium/';
+
+
+    //
     // var modelURL = '../media/tilesets/TilesetWithDiscreteLOD/tileset.json.3dt';
     // var databasePath = '../media/tilesets/TilesetWithDiscreteLOD/';
     // var modelURL = '../media/models/3DTiles/tileset.json.3dt';
@@ -32,16 +41,21 @@
             this._viewer.init();
             this._viewer.setupManipulator();
 
+            var displayGraph = osgUtil.DisplayGraph.instance();
+            displayGraph.setDisplayGraphRenderer(true);
+            // displayGraph.createGraph(this._rootNode);
+
             var tiledmodelPromise = osgDB.readNodeURL( modelURL, {
                 databasePath: databasePath
             } );
             var self = this;
             tiledmodelPromise.then( function ( tiledmodel ) {
                 var mt = new osg.MatrixTransform();
-                osg.mat4.fromRotation( mt.getMatrix(), Math.PI / 2.0, osg.vec3.fromValues( 1, 0, 0 ) );
+                //osg.mat4.fromRotation( mt.getMatrix(), Math.PI / 2.0, osg.vec3.fromValues( 1, 0, 0 ) );
                 mt.addChild( tiledmodel );
                 self._rootNode.addChild( mt );
                 self._viewer.getManipulator().computeHomePosition();
+                displayGraph.createGraph(tiledmodel);
             } );
 
             this._viewer.setSceneData( this._rootNode );

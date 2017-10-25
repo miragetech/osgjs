@@ -42,13 +42,14 @@ ReaderWriterB3DM.prototype = {
     readNodeURL: function ( url /*, options*/ ) {
         var self = this;
         var model = new B3DMModel();
+        console.log('leyendo '+ url);
         var filePromise = requestFile( url, {
             responseType: 'arraybuffer'
         } );
         return filePromise.then( function ( file ) {
             self.readHeader( file, model );
             if ( model.header.featureTableJsonByteLength > 0 ) {
-                self.readFeatureTableJson( file, model );
+                self.readFeatureTableJson( model );
             }
             if ( model.header.batchTableJSONByteLength > 0 ) {
                 self.readBatchTable( file, model );
@@ -88,7 +89,7 @@ ReaderWriterB3DM.prototype = {
             model.header.batchTableBinaryByteLength = 0;
             model.header.featureTableJsonByteLength = 0;
             model.header.featureTableBinaryByteLength = 0;
-            console.warn('b3dm-legacy-header', 'This b3dm header is using the legacy format [batchLength] [batchTableByteLength]. The new format is [featureTableJsonByteLength] [featureTableBinaryByteLength] [batchTableJsonByteLength] [batchTableBinaryByteLength] from https://github.com/AnalyticalGraphicsInc/3d-tiles/blob/master/TileFormats/Batched3DModel/README.md.');
+            // console.warn('b3dm-legacy-header', 'This b3dm header is using the legacy format [batchLength] [batchTableByteLength]. The new format is [featureTableJsonByteLength] [featureTableBinaryByteLength] [batchTableJsonByteLength] [batchTableBinaryByteLength] from https://github.com/AnalyticalGraphicsInc/3d-tiles/blob/master/TileFormats/Batched3DModel/README.md.');
         } else if (model.header.batchTableBinaryByteLength >= 570425344) {
             // Second legacy check
             this._decoder.setOffset(this._decoder.getOffset() -  Uint32Array.BYTES_PER_ELEMENT );
@@ -97,13 +98,14 @@ ReaderWriterB3DM.prototype = {
             model.header.batchTableBinaryByteLength =model.header. featureTableBinaryByteLength;
             model.header.featureTableJsonByteLength = 0;
             model.header.featureTableBinaryByteLength = 0;
-            console.warn('b3dm-legacy-header', 'This b3dm header is using the legacy format [batchTableJsonByteLength] [batchTableBinaryByteLength] [batchLength]. The new format is [featureTableJsonByteLength] [featureTableBinaryByteLength] [batchTableJsonByteLength] [batchTableBinaryByteLength] from https://github.com/AnalyticalGraphicsInc/3d-tiles/blob/master/TileFormats/Batched3DModel/README.md.');
+            // console.warn('b3dm-legacy-header', 'This b3dm header is using the legacy format [batchTableJsonByteLength] [batchTableBinaryByteLength] [batchLength]. The new format is [featureTableJsonByteLength] [featureTableBinaryByteLength] [batchTableJsonByteLength] [batchTableBinaryByteLength] from https://github.com/AnalyticalGraphicsInc/3d-tiles/blob/master/TileFormats/Batched3DModel/README.md.');
         }
     },
 
-    readFeatureTableJson: function ( /* bufferArray, model */) {
+    readFeatureTableJson: function (  model ) {
         // Notify.error( 'batch table reading not implemented yet' );
         console.log( 'Feature table json not implemented yet' );
+        model.jsonTable = this._decoder.decodeStringArray( model.header.batchTableJsonByteLength );
     },
 
     readBatchTable: function ( /*bufferArray, model*/) {
