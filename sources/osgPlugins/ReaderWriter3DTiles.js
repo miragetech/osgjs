@@ -6,6 +6,7 @@ var requestFile = require( 'osgDB/requestFile.js' );
 var Registry = require ('osgDB/Registry');
 var ReaderWriterB3DM = require( 'osgPlugins/ReaderWriterB3DM' );
 var MatrixTransform = require( 'osg/MatrixTransform' );
+var Node = require( 'osg/Node' );
 var PagedLOD = require( 'osg/PagedLOD' );
 var Lod = require( 'osg/Lod' );
 var BoundingBox = require( 'osg/BoundingBox' );
@@ -16,9 +17,10 @@ var mat4 = require( 'osg/glMatrix' ).mat4;
 var quat = require( 'osg/glMatrix' ).quat;
 
 var recursiones = 0;
-var NUM_MAX_RECURSIONES = 2;
+var NUM_MAX_RECURSIONES = 500;
 var childNumber = 0;
 var GEOMETRIC_ERROR_SCALE = 1;
+var RANGE_IN_PIXELS = 100000;
 
 var ReaderWriter3DTiles = function () {
     this._b3dmReader = new ReaderWriterB3DM();
@@ -37,7 +39,8 @@ ReaderWriter3DTiles.prototype = {
             this._subBasePath = options.subBasePath;
         }
         if ( options && options.parentBounding !== undefined ) {
-            this._parentBounding = options.parentBounding;
+            this._bounding = options.parentBounding;
+            // this._parentBounding = options.parentBounding;
         }
 
         var self = this;
@@ -60,16 +63,18 @@ ReaderWriter3DTiles.prototype = {
     readChildrenTiles: function ( parent ) {
         var defer = P.defer();
         var numChilds = 0;
-        var group = new MatrixTransform();
+        var group = new Node();
+      //  group.setMatrix(  mat4.fromRotation( group.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) ));
         var self = this;
         recursiones++;
 
-        if (recursiones > NUM_MAX_RECURSIONES){
-          defer.reject();
-          return;
-        }
+        // if (recursiones > NUM_MAX_RECURSIONES){
+        //   defer.reject();
+        //   return;
+        // }
 
         var createTileLOD = function ( tileLOD, tag, rw ) {
+            var childDefer = P.defer();
             var ext = tag.content.url.substr( tag.content.url.lastIndexOf( '.' ),tag.content.url.lenght );
 
             var fileURL =  rw._databasePath;
@@ -77,65 +82,78 @@ ReaderWriter3DTiles.prototype = {
             fileURL+= self._subBasePath;
             fileURL+= tag.content.url;
 
-            var rangeMin = ( tileLOD.json.geometricError !== undefined ) ? tileLOD.json.geometricError : 0;
-            rangeMin *= rangeMin * GEOMETRIC_ERROR_SCALE;
-
-            // position object
-            var bs = self.getBounding(tag.boundingVolume);
-            var tileTransform = new MatrixTransform();
-            // console.log(self._bounding.center() + ' child bound ' + bs.center());
-            var transVec = vec3.sub(vec3.create(),self._bounding.center(), bs.center());
-            var scale = vec3.ONE;
-            var rot = vec4.create();
-            quat.setAxisAngle(rot,vec3.fromValues(1,0,0), Math.PI / 2.0) ;
-            var trans = vec3.fromValues(transVec[0],transVec[1],transVec[2]) ;
-            var mat = mat4.create();
-            mat4.fromRotationTranslationScale( mat, rot, trans, scale );
-            tileTransform.setMatrix(mat);
-
-
+            // var rangeMin = ( tileLOD.json.geometricError !== undefined ) ? tileLOD.json.geometricError : 0;
+            var rangeMin = RANGE_IN_PIXELS;
+            rangeMin = rangeMin * GEOMETRIC_ERROR_SCALE;
             if (ext === '.b3dm'){
               var b3dmrw = new ReaderWriterB3DM();
 
               b3dmrw.readNodeURL( fileURL ).then( function ( child ) {
                 var tt = new MatrixTransform();
                 // tt.setMatrix( mat4.fromTranslation(mat4.create(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
-                mat4.fromRotation( tt.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+                // tt.setMatrix(mat4.fromRotation( tt.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) ));
+                var bs = self.getBounding(tag.boundingVolume);
+                var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
+                // tt.setMatrix(  mat4.fromTranslation(tt.getMatrix(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
+
+                var matrixTranslate = mat4.create();
+                mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
+
+                var matrixRotate = mat4.create();
+                mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+
+                mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
+
+
                 tt.addChild(child);
-                tileLOD.addChild( tt, rangeMin, Number.MAX_VALUE );
+
+                // MOVE THIS
+                tileLOD.addChild( tt, 0, rangeMin );
+                // tileLOD.setRangeMode(Lod.DISTANCE_FROM_EYE_POINT);
                 tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
 
                 if ( tileLOD.json.children !== undefined ) {
-                  self._bounding = bs;
+                  //self._bounding = bs;
                   tileLOD.setFunction( 1, rw.readChildrenTiles.bind( rw ) );
                   tileLOD.setRange( 1, rangeMin, Number.MAX_VALUE );
+                } else {
+                  tileLOD.setRange( 0, 0, Number.MAX_VALUE );
                 }
-                numChilds--;
-                if ( numChilds <= 0 )
-                defer.resolve( group );
+                // numChilds--;
+                // if ( numChilds <= 0 )
+                childDefer.resolve( tileLOD );
+                //defer.resolve( group );
               } );
-            } else if (ext === '.json')
+            }
+            else if (ext === '.json')
             {
               //console.log('loading 3dt child');
               var modelURL = fileURL + '.3dt';
+              console.log('Leyendo ' + modelURL);
+              if (modelURL.lastIndexOf('Tile_p014_p002_L21_00013'))
+                console.log('cazado');
+
+              var basePath =  fileURL.substr(0,fileURL.lastIndexOf('/'));
+              basePath = basePath.substr(basePath.lastIndexOf('/')) + '/';
+
               var rwB3DM = new ReaderWriter3DTiles();
               var tiledmodelPromise = rwB3DM.readNodeURL( modelURL, {
                   databasePath: self._databasePath,
-                  subBasePath: 'Data/',
+                  subBasePath: basePath,
                   parentBounding: self._bounding
               } );
               tiledmodelPromise.then( function ( tiledmodel ) {
                   //tileTransform.addChild(tiledmodel);
-                  var tt = new MatrixTransform();
+                  //var tt = new MatrixTransform();
                   // tt.setMatrix( tiledmodel.fromTranslation(mat4.create(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
-                  mat4.fromRotation( tt.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
-                  tt.addChild(tiledmodel);
-                  tileLOD.addChild( tt, rangeMin, Number.MAX_VALUE );
-                  tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
-                  defer.resolve( tiledmodel );
+                  //mat4.fromRotation( tt.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+                  //tt.addChild(tiledmodel);
+                  //tileLOD.addChild( tt, rangeMin, Number.MAX_VALUE );
+                  //tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
+                  childDefer.resolve( tiledmodel );
               } );
-
             }
+            return childDefer.promise;
         };
 
         var childrenJson = parent.json.children;
@@ -145,65 +163,147 @@ ReaderWriter3DTiles.prototype = {
         }
 
         numChilds = childrenJson.length;
+        var promiseTLOD = [];
         for ( var i = 0; i < childrenJson.length; i++ ) {
             var contentURL = childrenJson[ i ].content.url;
+            console.log('*************************************************');
+            console.log('recursion ' + recursiones + ' child ' + i);
             var tileLOD = new PagedLOD();
             tileLOD.setName( contentURL );
             tileLOD.setDatabasePath( parent.getDatabasePath() );
             if ( contentURL === undefined ) break;
             tileLOD.json = childrenJson[ i ];
-            createTileLOD( tileLOD, childrenJson[ i ], this );
+
+            // calculating position using bounding sphere
+            // var bs = self.getBounding(childrenJson[ i ].boundingVolume);
+            //var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
+
+            promiseTLOD.push(createTileLOD( tileLOD, childrenJson[ i ], this ));
 
             // transform each child
-            var bs = self.getBounding(childrenJson[ i ].boundingVolume);
-            var tileChildTransform = new MatrixTransform();
-            var transVec = vec3.sub(vec3.create(),self._bounding.center(), bs.center());
-            console.log('parent ' + self._bounding + ' child ' + bs + ' difference ' + transVec);
-            tileChildTransform.setMatrix( mat4.fromTranslation(mat4.create(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
-            tileChildTransform.addChild(tileLOD);
-            group.addChild( tileChildTransform );
+            // var tileChildTransform = new MatrixTransform();
+            // console.log('recursion ' +  recursiones + ' parent ' + self._bounding + ' child ' + bs + ' difference ' + transVec);
+            // var tt = new MatrixTransform();
+            // mat4.fromTranslation(tt.getMatrix(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) );
+            // tileChildTransform.setMatrix(tt.getMatrix() );
+            // tileChildTransform.addChild(tileLOD);
+
+            console.log('-----------------------------------------------------');
         }
+        P.all(promiseTLOD).then ( function (tileLODArray) {
+            for (var i = 0; i < tileLODArray.length; i++) {
+                group.addChild( tileLODArray[i] );
+            }
+            defer.resolve(group);
+        });
         return defer.promise;
     },
+
+    readSimpleNode: function ( tileJson, group ) {
+      var self = this;
+
+
+      var readFromJson = function (url){
+        var modelURL = url + '.3dt';
+        console.log('Leyendo hijos ' + modelURL);
+
+        // var basePath =  url.substr(url.lastIndexOf('/'));
+        // basePath = basePath.substr(1,basePath.lastIndexOf('.')-1) + '/';
+
+        var basePath =  url.substr(0,url.lastIndexOf('/'));
+        basePath = basePath.substr(basePath.lastIndexOf('/')) + '/';
+
+        var rwB3DM = new ReaderWriter3DTiles();
+        var tiledmodelPromise = rwB3DM.readNodeURL( modelURL, {
+            databasePath: self._databasePath,
+            subBasePath: basePath,
+            parentBounding: self._bounding
+        } );
+        tiledmodelPromise.then( function ( tiledmodel ) {
+            // defer.resolve( tiledmodel );
+            group.addChild(tiledmodel);
+        } );
+      };
+      for ( var i = 0; i < tileJson.length; i++ ) {
+          var childrenJson = tileJson[i];
+          if ( childrenJson.content !== undefined && childrenJson.content.url !== undefined )
+              {
+                  readFromJson('../context/Scene/' + childrenJson.content.url);
+              } else {
+
+                var tt = new MatrixTransform();
+
+                var bs = self.getBounding(childrenJson.boundingVolume);
+                var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
+
+                var matrixTranslate = mat4.create();
+                mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
+
+                var matrixRotate = mat4.create();
+                mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+
+                mat4.mul(group.getMatrix(), matrixTranslate, matrixRotate);
+
+                if (childrenJson.children && childrenJson.children.length > 0)
+                this.readSimpleNode(childrenJson.children,tt);
+
+                group.addChild(tt);
+              }
+      }
+    },
+
 
     readRootTile: function ( tileJson ) {
         var self = this;
         var tileTransform = new MatrixTransform();
-        var tileLOD = new PagedLOD();
-        tileLOD.setDatabasePath( this._databasePath );
-        tileTransform.addChild( tileLOD );
         // FIXME: transforms seems to be column major
         // So no transforms right now
-        // tileTransform.setMatrix( tileJson.transform );
-        var bs = tileJson.boundingVolume.sphere;
-        // if (this._bounding)
 
         if (tileJson.transform)
             console.log('TIENE TRANSFORMACIONES!!!!!');
-        this.readBoundingVolume( tileJson, tileLOD );
-        // if (this._bounding && this._parentBounding){
-        //   var transVec = vec3.sub(vec3.create(),this._bounding.center(), this._parentBounding.center());
-        //   if (transVec[0] !== 0 && transVec[1] !== 0 &&transVec[2] !== 0)
-        // tileTransform.setMatrix( mat4.fromTranslation(mat4.create(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
-        // }
 
-        mat4.fromRotation( tileTransform.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+        this.readBoundingVolume( tileJson );
+        // if a node does not have content, try to add his children
+        if ( tileJson.content === undefined || tileJson.content.url === undefined )
+        {
+            var group = new MatrixTransform();
+            this.readSimpleNode(tileJson.children, group);
+            tileTransform.addChild(group);
+        } else {
+            var tileLOD = new PagedLOD();
+            tileLOD.setDatabasePath( this._databasePath );
+            tileTransform.addChild( tileLOD );
+            var contentURL = tileJson.content.url;
+            var fileURL =  this._databasePath;
+            if (this._subBasePath)
+              fileURL+= this._subBasePath;
+            fileURL+=contentURL;
+            this._b3dmReader.readNodeURL( fileURL ).then( function ( node ) {
+                tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
+                //tileLOD.addChild( node, tileJson.geometricError, Number.MAX_VALUE );
+                // var range = tileJson.geometricError * tileJson.geometricError * GEOMETRIC_ERROR_SCALE;
+                var range = RANGE_IN_PIXELS;
 
-        var contentURL = tileJson.content.url;
-        if ( contentURL === undefined ) return;
-        var fileURL =  this._databasePath;
-        if (this._subBasePath)
-          fileURL+= this._subBasePath;
-        fileURL+=contentURL;
-        this._b3dmReader.readNodeURL( fileURL ).then( function ( node ) {
-            tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
-            //tileLOD.addChild( node, tileJson.geometricError, Number.MAX_VALUE );
-            var range = tileJson.geometricError * tileJson.geometricError * GEOMETRIC_ERROR_SCALE;
-            tileLOD.addChild( node, 0, range );
-            tileLOD.json = tileJson;
-            tileLOD.setFunction( 1, self.readChildrenTiles.bind( self ) );
-            tileLOD.setRange( 1,range, Number.MAX_VALUE );
-        } );
+                var tt = new MatrixTransform();
+              //  tt.setMatrix(mat4.fromRotation( tt.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) ));
+                var bs = self.getBounding(tileJson.boundingVolume);
+                var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
+                // tt.setMatrix(  mat4.fromTranslation(tt.getMatrix(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
+
+                var matrixTranslate = mat4.create();
+                mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
+
+                var matrixRotate = mat4.create();
+                mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+
+                mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
+                tt.addChild(node);
+                tileLOD.addChild( tt, 0, range );
+                tileLOD.json = tileJson;
+                tileLOD.setFunction( 1, self.readChildrenTiles.bind( self ) );
+                tileLOD.setRange( 1,range, Number.MAX_VALUE );
+            } );
+      }
         return tileTransform;
     },
 
@@ -221,7 +321,8 @@ ReaderWriter3DTiles.prototype = {
            var sphere = tileJson.boundingVolume.sphere;
            var bs = new BoundingSphere();
            bs.set(vec3.fromValues(sphere[0],sphere[1],sphere[2]),sphere[3]);
-           this._bounding = bs;
+           if (this._bounding === undefined)
+              this._bounding = bs;
           //  console.log( bs.center( vec3.create() ) + ' radio ' + bs.radius());
            ///tileLOD.setCenter( bs.center( vec3.create() ) );
            //tileLOD.setRadius( bs.radius() );

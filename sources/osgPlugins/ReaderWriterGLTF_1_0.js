@@ -870,7 +870,8 @@ ReaderWriterGLTF.prototype = {
         var root = new MatrixTransform();
         root.setName( url );
 
-
+        if (glTFFile === '')
+          console.log('not valid json');
         var json = JSON.parse( glTFFile );
         if ( !json ) return;
 

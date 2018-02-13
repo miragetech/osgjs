@@ -12,6 +12,7 @@
     <script type="text/javascript" src="../vendors/dat.gui.js"></script>
     <script type="text/javascript" src="../vendors/bluebird.js"></script>
     <script type="text/javascript" src="../vendors/hammer.js"></script>
+    <script type="text/javascript" src="../../node_modules/jquery/dist/jquery.min.js"></script>
     <script type="text/javascript" src="../vendors/leap.js"></script>
     <script type="text/javascript" src="../../builds/dist/OSG.js"></script>
     <!-- Example Base Class -->
@@ -25,6 +26,7 @@
   <body class="osgjs-theme-dark">
 
     <div id="ViewContainer" class="osgjs-fullpage">
+      <button id="reload" >Reload debug</button>
       <!-- very important change the size of the parent element instead-->
       <canvas id="View" style="height:100%;width:100%;" oncontextmenu="return false;"></canvas>
     </div>
