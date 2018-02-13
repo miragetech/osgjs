@@ -42,7 +42,7 @@ ReaderWriterB3DM.prototype = {
     readNodeURL: function ( url /*, options*/ ) {
         var self = this;
         var model = new B3DMModel();
-        console.log('leyendo '+ url);
+        // console.log('leyendo '+ url);
         var filePromise = requestFile( url, {
             responseType: 'arraybuffer'
         } );
