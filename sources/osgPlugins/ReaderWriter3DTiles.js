@@ -84,18 +84,16 @@ ReaderWriter3DTiles.prototype = {
                 fileURL+= self._subBasePath;
             fileURL+= tag.content.url;
 
-            // if (fileURL.indexOf('Data') === -1)
-            //     console.log('Data not present');
             // var rangeMin = ( tileLOD.json.geometricError !== undefined ) ? tileLOD.json.geometricError : 0;
             var rangeMin = RANGE_IN_PIXELS;
             rangeMin = rangeMin * GEOMETRIC_ERROR_SCALE;
             if (ext === '.b3dm'){
               var b3dmrw = new ReaderWriterB3DM();
 
-              // if (fileURL.indexOf('//') !== -1 )
-              //   console.log('ojo!!! doble //');
+              // console.log('loading ' + fileURL);
 
               b3dmrw.readNodeURL( fileURL ).then( function ( child ) {
+                // console.log('load ' + fileURL);
                 var tt = new MatrixTransform();
                 var bs = self.getBounding(tag.boundingVolume);
                 var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
@@ -108,10 +106,8 @@ ReaderWriter3DTiles.prototype = {
 
                 mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
 
-
                 tt.addChild(child);
 
-                // MOVE THIS
                 tileLOD.addChild( tt, 0, rangeMin );
                 // tileLOD.setRangeMode(Lod.DISTANCE_FROM_EYE_POINT);
                 tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
@@ -134,7 +130,6 @@ ReaderWriter3DTiles.prototype = {
               var modelURL = fileURL + '.3dt';
               // console.log('Leyendo ' + modelURL);
 
-              //var basePath =  fileURL.substr(0,fileURL.lastIndexOf('/'));
               var basePath = fileURL.substr(self._databasePath.length)
               basePath = basePath.substr(0,basePath.lastIndexOf('/')+1);
 
@@ -164,8 +159,6 @@ ReaderWriter3DTiles.prototype = {
         var promiseTLOD = [];
         for ( var i = 0; i < childrenJson.length; i++ ) {
             var contentURL = childrenJson[ i ].content.url;
-            // console.log('*************************************************');
-            // console.log('recursion ' + recursiones + ' child ' + i);
             var tileLOD = new PagedLOD();
             tileLOD.setName( contentURL );
             tileLOD.setDatabasePath( parent.getDatabasePath() );
@@ -174,7 +167,6 @@ ReaderWriter3DTiles.prototype = {
 
             promiseTLOD.push(createTileLOD( tileLOD, childrenJson[ i ], this ));
 
-            // console.log('-----------------------------------------------------');
         }
         P.all(promiseTLOD).then ( function (tileLODArray) {
             for (var i = 0; i < tileLODArray.length; i++) {
@@ -191,9 +183,6 @@ ReaderWriter3DTiles.prototype = {
 
       var readFromJson = function (url, childrenJson){
         var modelURL = url + '.3dt';
-
-        // var basePath =  url.substr(0,url.lastIndexOf('/'));
-        // basePath = basePath.substr(basePath.lastIndexOf('/')+1) + '/';
 
         var basePath = url.substr(self._databasePath.length)
         basePath = basePath.substr(0,basePath.lastIndexOf('/')+1);
@@ -215,7 +204,7 @@ ReaderWriter3DTiles.prototype = {
           var childrenJson = tileJson[i];
           if ( childrenJson.content !== undefined && childrenJson.content.url !== undefined )
               {
-                  readFromJson(/*'../context/Scene/' +*/ this._databasePath + childrenJson.content.url, childrenJson);
+                  readFromJson( this._databasePath + childrenJson.content.url, childrenJson);
               } else {
 
                 var tt = new MatrixTransform();

@@ -14,6 +14,7 @@ var ReaderWriterB3DM = function () {
     this._decoder = new BinaryDecoder();
     this._decoder.setLittleEndian( true );
     this._glbReader = new ReaderWriterGLB();
+    this._url = '';// for degub
 };
 
 var B3DMHeader = function () {
@@ -41,6 +42,7 @@ ReaderWriterB3DM.prototype = {
 
     readNodeURL: function ( url /*, options*/ ) {
         var self = this;
+        this._url = url;
         var model = new B3DMModel();
         // console.log('leyendo '+ url);
         var filePromise = requestFile( url, {
@@ -119,7 +121,7 @@ ReaderWriterB3DM.prototype = {
           + model.header.featureTableBinaryByteLength
           + model.header.batchTableJsonByteLength
           + model.header.batchTableBinaryByteLength );
-        return this._glbReader.readBinaryArray( gltfArray );
+        return this._glbReader.readBinaryArray( gltfArray, this._url );
     }
 };
 

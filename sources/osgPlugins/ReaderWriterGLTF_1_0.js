@@ -28,6 +28,7 @@ var primitiveSet = require( 'osg/primitiveSet');
 var BufferArray = require( 'osg/BufferArray');
 var UpdateBone = require( 'osgAnimation/UpdateBone');
 var UpdateMatrixTransform = require( 'osgAnimation/UpdateMatrixTransform');
+var Image = require('osg/Image');
 
 var Uniform = require( 'osg/Uniform');
 
@@ -53,6 +54,7 @@ var ReaderWriterGLTF = function () {
     this._localPath = '';
     this._glbModel = undefined;
     this.init();
+    this._url = '';
 };
 
 ReaderWriterGLTF.WEBGL_COMPONENT_TYPES = {
@@ -261,25 +263,28 @@ ReaderWriterGLTF.prototype = {
         } );
     } ),
 
-    createTextureAndSetAttribFromBuffer: P.method( function ( buffer, stateSet, location, format, uniform ) {
-        if ( !buffer ) return;
+    createTextureAndSetAttribFromBuffer: function ( buffer, stateSet, location, format, uniform ) {
+        var defer = P.defer();
+        if ( !buffer )
+            defer.reject();
+            // return;
+        var self = this;
         var texture = new Texture();
         // GLTF texture origin is correct
         texture.setFlipY( false );
         texture.setWrapS( 'REPEAT' );
         texture.setWrapT( 'REPEAT' );
 
-
-        var image =  this._inputReader.readImageURL(buffer).then(function (data){
+        this._inputReader.readImageURL(buffer).then(function (data){
           texture.setImage( data, format );
           stateSet.setTextureAttributeAndModes( location, texture );
           if ( uniform ) {
             stateSet.addUniform( Uniform.createInt( location, uniform ) );
           }
-          return;
+          defer.resolve();//return;
         });
-
-    } ),
+        return defer.promise;
+    },
 
     /**
      * Creates a MatrixTransform node by using
@@ -571,14 +576,17 @@ ReaderWriterGLTF.prototype = {
         return P.all( promises );
     } ),
 
-    loadMaterial: P.method( function ( materialId, geometryNode ) {
+    loadMaterial: function ( materialId, geometryNode ) {
+        var defer = P.defer();
+        var self = this;
 
         var json = this._glTFJSON;
         var glTFmaterial = json.materials[ materialId ];
 
         if ( this._stateSetMap[ materialId ] ) {
             geometryNode.stateset = this._stateSetMap[ materialId ];
-            return;
+            defer.resolve();
+            // return;
         }
 
         var extension = this.findByKey( glTFmaterial.extensions, ReaderWriterGLTF.PBR_SPEC_EXT );
@@ -586,7 +594,7 @@ ReaderWriterGLTF.prototype = {
             return this.loadPBRMaterial( materialId, glTFmaterial, geometryNode, extension );
 
         var values = glTFmaterial.values;
-        if ( !values ) return;
+        // if ( !values ) return;
 
         // Handles basic material attributes
         var osgMaterial = new Material();
@@ -626,16 +634,22 @@ ReaderWriterGLTF.prototype = {
             var base64 = this._decoder.decodeStringArray(bufferView.byteLength);
             base64 = 'data:' + image.extensions.KHR_binary_glTF.mimeType + ';base64,' + btoa( base64 );
 
-            return this.createTextureAndSetAttribFromBuffer(base64, osgStateSet, 0, ReaderWriterGLTF.TEXTURE_FORMAT[texture.format]);
+            self.createTextureAndSetAttribFromBuffer(base64, osgStateSet, 0, ReaderWriterGLTF.TEXTURE_FORMAT[texture.format]).then(function(){
+                defer.resolve();
+            });
+        } else {
+
+          geometryNode.stateset = osgStateSet;
+          this._stateSetMap[ materialId ] = osgStateSet;
+
+          defer.resolve();//return;
         }
+        return defer.promise;
+    } ,
 
-        geometryNode.stateset = osgStateSet;
-        this._stateSetMap[ materialId ] = osgStateSet;
 
-        return;
-    } ),
 
-    createGeometry: function ( primitive, skeletonJointId ) {
+    createGeometry:  P.method(function ( primitive, skeletonJointId ) {
 
         var json = this._glTFJSON;
         var promisesArray = [];
@@ -735,8 +749,7 @@ ReaderWriterGLTF.prototype = {
         if ( primitive.material !== undefined )
             promisesArray.push( this.loadMaterial( primitive.material, geom ) );
 
-        return P.all( promisesArray ).then( function () {
-
+        return P.all( promisesArray ).then( function (resolveArray) {
             if ( skeletonJointId ) {
 
                 rigOrGeom.setSourceGeometry( geom );
@@ -748,9 +761,9 @@ ReaderWriterGLTF.prototype = {
             return rigOrGeom;
 
         } );
-    },
+    }),
 
-    loadGLTFPrimitives: function ( meshId, resultMeshNode, skeletonJointId ) {
+    loadGLTFPrimitives:  P.method(function ( meshId, resultMeshNode, skeletonJointId ) {
 
         var json = this._glTFJSON;
         var mesh = json.meshes[ meshId ];
@@ -776,7 +789,7 @@ ReaderWriterGLTF.prototype = {
             return geoms;
 
         } );
-    },
+    }),
 
     loadGLTFNode: P.method( function ( nodeId, root ) {
 
@@ -869,6 +882,7 @@ ReaderWriterGLTF.prototype = {
         // adding a PI / 2 rotation arround the X-axis
         var root = new MatrixTransform();
         root.setName( url );
+        this._url = url;
 
         if (glTFFile === '')
           console.log('not valid json');

@@ -16,6 +16,7 @@ var ReaderWriterGLB = function () {
     this._decoder = new BinaryDecoder();
     this._decoder.setLittleEndian( true );
     this._gltfReader = new ReaderWriterGLTF();
+    this._url = ''; // for debug
 };
 
 var GLBHeader = function () {
@@ -36,6 +37,7 @@ ReaderWriterGLB.prototype = {
 
     readNodeURL: function ( url /*, options*/ ) {
         var self = this;
+        this._url = url;
         var filePromise = requestFile( url, {
             responseType: 'arraybuffer'
         } );
@@ -45,14 +47,15 @@ ReaderWriterGLB.prototype = {
         } );
     },
 
-    readBinaryArray: function ( bufferArray ) {
+    readBinaryArray: function ( bufferArray, url ) {
+        this._url = url;
         var model = new GLBModel();
         this.readHeader( bufferArray, model );
         this.readJson( bufferArray, model );
         this.readBuffers( bufferArray, model );
         this._gltfReader.init();
         this._gltfReader.setGLBModel( model );
-        return this._gltfReader.readJSON( model.json );
+        return this._gltfReader.readJSON( model.json, url );
     },
 
     readHeader: function ( bufferArray, model ) {
