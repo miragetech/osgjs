@@ -16,11 +16,9 @@ var vec4 = require( 'osg/glMatrix' ).vec4;
 var mat4 = require( 'osg/glMatrix' ).mat4;
 var quat = require( 'osg/glMatrix' ).quat;
 
-var recursiones = 0;
-var NUM_MAX_RECURSIONES = 500;
 var childNumber = 0;
 var GEOMETRIC_ERROR_SCALE = 1;
-var RANGE_IN_PIXELS = 400000;
+var RANGE_IN_PIXELS = 100000;
 
 var ReaderWriter3DTiles = function () {
     this._b3dmReader = new ReaderWriterB3DM();
@@ -84,12 +82,6 @@ ReaderWriter3DTiles.prototype = {
         var group = new Node();
       //  group.setMatrix(  mat4.fromRotation( group.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) ));
         var self = this;
-        recursiones++;
-
-        // if (recursiones > NUM_MAX_RECURSIONES){
-        //   defer.reject();
-        //   return;
-        // }
 
         var createTileLOD = function ( tileLOD, tag, rw ) {
             var childDefer = P.defer();
@@ -112,15 +104,17 @@ ReaderWriter3DTiles.prototype = {
                 // console.log('load ' + fileURL);
                 var tt = new MatrixTransform();
                 var bs = self.getBounding(tag.boundingVolume);
-                var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
+                if (bs.center(vec3.create()) !== undefined) {
+                    var transVec = vec3.sub(vec3.create(), bs.center(vec3.create()),self._bounding.center(vec3.create()));
 
-                var matrixTranslate = mat4.create();
-                mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
+                    var matrixTranslate = mat4.create();
+                    mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
 
-                var matrixRotate = mat4.create();
-                mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+                    var matrixRotate = mat4.create();
+                    mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
 
-                mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
+                    mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
+                }
 
                 tt.addChild(child);
 
@@ -231,18 +225,20 @@ ReaderWriter3DTiles.prototype = {
                 var tt = new MatrixTransform();
 
                 var bs = self.getBounding(childrenJson.boundingVolume);
-                var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
+                if (bs.center(vec3.create()) !== undefined ) {
+                    var transVec = vec3.sub(vec3.create(), bs.center(vec3.create()),self._bounding.center(vec3.create()));
 
-                var matrixTranslate = mat4.create();
-                mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
+                    var matrixTranslate = mat4.create();
+                    mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
 
-                var matrixRotate = mat4.create();
-                mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+                    var matrixRotate = mat4.create();
+                    mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
 
-                mat4.mul(group.getMatrix(), matrixTranslate, matrixRotate);
+                    mat4.mul(group.getMatrix(), matrixTranslate, matrixRotate);
+                }
 
                 if (childrenJson.children && childrenJson.children.length > 0)
-                this.readSimpleNode(childrenJson.children,tt);
+                    this.readSimpleNode(childrenJson.children,tt);
 
                 group.addChild(tt);
               }
@@ -291,16 +287,19 @@ ReaderWriter3DTiles.prototype = {
                 var tt = new MatrixTransform();
               //  tt.setMatrix(mat4.fromRotation( tt.getMatrix(), Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) ));
                 var bs = self.getBounding(tileJson.boundingVolume);
-                var transVec = vec3.sub(vec3.create(), bs.center(),self._bounding.center());
-                // tt.setMatrix(  mat4.fromTranslation(tt.getMatrix(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
+                if (bs.center(vec3.create()) !== undefined) {
+                    var transVec = vec3.sub(vec3.create(), bs.center(vec3.create()),self._bounding.center(vec3.create()));
+                    // tt.setMatrix(  mat4.fromTranslation(tt.getMatrix(),vec3.fromValues(transVec[0],transVec[1],transVec[2]) ));
 
-                var matrixTranslate = mat4.create();
-                mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
+                    var matrixTranslate = mat4.create();
+                    mat4.fromTranslation(matrixTranslate, vec3.fromValues(transVec[0],transVec[1],transVec[2]));
 
-                var matrixRotate = mat4.create();
-                mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
+                    var matrixRotate = mat4.create();
+                    mat4.fromRotation(matrixRotate,  Math.PI / 2.0, vec3.fromValues( 1, 0, 0 ) );
 
-                mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
+                    mat4.mul(tt.getMatrix(), matrixTranslate, matrixRotate);
+                }
+
                 tt.addChild(node);
                 tileLOD.addChild( tt, 0, range );
                 tileLOD.json = tileJson;
@@ -329,11 +328,8 @@ ReaderWriter3DTiles.prototype = {
            bs.set(vec3.fromValues(sphere[0],sphere[1],sphere[2]),sphere[3]);
            if (this._bounding === undefined)
               this._bounding = bs;
-          //  console.log( bs.center( vec3.create() ) + ' radio ' + bs.radius());
-           ///tileLOD.setCenter( bs.center( vec3.create() ) );
-           //tileLOD.setRadius( bs.radius() );
         } else {
-            console.console.log( 'this bounding volume is not implement yet' );
+            console.log( 'this bounding volume is not implement yet' );
             // Notify.error( 'this bounding volume is not implement yet' );
         }
     },
@@ -352,7 +348,7 @@ ReaderWriter3DTiles.prototype = {
            bs.set(vec3.fromValues(sphere[0],sphere[1],sphere[2]),sphere[3]);
            return bs;
         } else {
-            console.console.log( 'this bounding volume is not implement yet' );
+            console.log( 'this bounding volume is not implement yet' );
             // Notify.error( 'this bounding volume is not implement yet' );
         }
     }

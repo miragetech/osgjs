@@ -13,20 +13,26 @@
     // var modelURL = 'https://d3h9zulrmcj1j6.cloudfront.net/Orlando_Cesium/root.json.3dt';
     // var databasePath = 'https://d3h9zulrmcj1j6.cloudfront.net/Orlando_Cesium/';
 
+    // helsinki
+    var modelURL = 'https://kartta.hel.fi/3d/b3dm/root.json.3dt';
+    var databasePath = 'https://kartta.hel.fi/3d/b3dm/';
+
     // marseille
     // var modelURL = 'https://d3h9zulrmcj1j6.cloudfront.net/Marseille_Cesium/root.json.3dt';
     // var databasePath = 'https://d3h9zulrmcj1j6.cloudfront.net/Marseille_Cesium/';
 
+
     // Context capture
     // var modelURL = './context/Scene/Data/Tile_p007_p010/Tile_p007_p010.json.3dt';
     // var databasePath = './context/Scene/Data/Tile_p007_p010/';
-    var modelURL = './context/Scene/3dmesh.json.3dt';
-    var databasePath = './context/Scene/';
+    // var modelURL = './context/Scene/3dmesh.json.3dt';
+    // var databasePath = './context/Scene/';
 
 
-    //
+    // //
     // var modelURL = '../media/tilesets/TilesetWithDiscreteLOD/tileset.json.3dt';
     // var databasePath = '../media/tilesets/TilesetWithDiscreteLOD/';
+
     // var modelURL = '../media/models/3DTiles/tileset.json.3dt';
     // var databasePath = '../media/models/3DTiles/';
 
@@ -50,7 +56,7 @@
                 'enableFrustumCulling': true
             } );
             this._viewer.init();
-            this._viewer.getCamera().setClearColor([0.5,0.5,0,1] );
+            // this._viewer.getCamera().setClearColor([0.5,0.5,0,1] );
 
             var tiledmodelPromise = osgDB.readNodeURL( modelURL, {
                 databasePath: databasePath
