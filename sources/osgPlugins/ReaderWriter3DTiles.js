@@ -30,6 +30,7 @@ var ReaderWriter3DTiles = function () {
 ReaderWriter3DTiles.prototype = {
 
     readNodeURL: function ( url, options ) {
+        var defer = P.defer();
         // console.log('Reading URL->' +  url);
         if ( options && options.databasePath !== undefined ) {
             // if (options.databasePath.indexOf('Data') === -1)
@@ -50,15 +51,30 @@ ReaderWriter3DTiles.prototype = {
         url = url.substr( 0, url.lastIndexOf( '.' ) );
         var filePromise = requestFile( url );
 
-        return filePromise.then( function ( file ) {
-            return self.readTileSet( file );
+        filePromise.then( function ( file ) {
+            self.readTileSet( file ).then(function(rootTile){
+                defer.resolve(rootTile);
+            });
         } );
+        // return filePromise.then( function ( file ) {
+        //     self.readTileSet( file ).then(function(rootTile){
+        //         return rootTile;
+        //     });
+        // } );
+
+        return defer.promise;
     },
 
     readTileSet: function ( file ) {
+        var defer = P.defer();
         var tilesetJson = JSON.parse( file );
-        var rootTile = this.readRootTile( tilesetJson.root );
-        return rootTile;
+        this.readRootTile( tilesetJson.root ).then(function(rootTile){
+            defer.resolve(rootTile);
+        });
+        return defer.promise;
+        // var tilesetJson = JSON.parse( file );
+        // var rootTile = this.readRootTile( tilesetJson.root );
+        // return rootTile;
     },
 
 
@@ -119,13 +135,18 @@ ReaderWriter3DTiles.prototype = {
                 } else {
                   tileLOD.setRange( 0, 0, Number.MAX_VALUE );
                 }
-                // numChilds--;
+                numChilds--;
+                // console.log('NumChilds ' + numChilds + ' file->'+ fileURL);
                 // if ( numChilds <= 0 )
-                childDefer.resolve( tileLOD );
+                // {
+                //  console.log('resolviendo grupo entero');
+                  childDefer.resolve( tileLOD );
+                // }
               } );
             }
             else if (ext === '.json')
             {
+              numChilds--;
               //console.log('loading 3dt child');
               var modelURL = fileURL + '.3dt';
               // console.log('Leyendo ' + modelURL);
@@ -231,6 +252,7 @@ ReaderWriter3DTiles.prototype = {
 
     readRootTile: function ( tileJson ) {
         var self = this;
+        var defer = P.defer();
         var tileTransform = new MatrixTransform();
         // FIXME: transforms seems to be column major
         // So no transforms right now
@@ -245,10 +267,10 @@ ReaderWriter3DTiles.prototype = {
             var group = new MatrixTransform();
             this.readSimpleNode(tileJson.children, group);
             tileTransform.addChild(group);
+            defer.resolve(tileTransform);
         } else {
             var tileLOD = new PagedLOD();
             tileLOD.setDatabasePath( this._databasePath );
-            tileTransform.addChild( tileLOD );
             var contentURL = tileJson.content.url;
             var fileURL =  this._databasePath;
             if (this._subBasePath)
@@ -260,6 +282,7 @@ ReaderWriter3DTiles.prototype = {
             //     console.log('No tiene data');
 
             this._b3dmReader.readNodeURL( fileURL ).then( function ( node ) {
+                tileTransform.addChild( tileLOD );
                 tileLOD.setRangeMode(Lod.PIXEL_SIZE_ON_SCREEN);
                 //tileLOD.addChild( node, tileJson.geometricError, Number.MAX_VALUE );
                 // var range = tileJson.geometricError * tileJson.geometricError * GEOMETRIC_ERROR_SCALE;
@@ -283,9 +306,11 @@ ReaderWriter3DTiles.prototype = {
                 tileLOD.json = tileJson;
                 tileLOD.setFunction( 1, self.readChildrenTiles.bind( self ) );
                 tileLOD.setRange( 1,range, Number.MAX_VALUE );
+                defer.resolve(tileTransform);
             } );
       }
-        return tileTransform;
+        return defer.promise;
+        // return tileTransform;
     },
 
     readBoundingVolume: function ( tileJson, tileLOD ) {

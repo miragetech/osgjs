@@ -922,7 +922,7 @@ ReaderWriterGLTF.prototype = {
             if ( self._basicAnimationManager )
                 root.addUpdateCallback( self._basicAnimationManager );
 
-            return P.all( promises ).then( function () {
+            return P.all( promises ).then( function (resolveArray) {
                 return root;
             } );
 
