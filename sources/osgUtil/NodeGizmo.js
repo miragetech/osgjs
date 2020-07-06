@@ -13,7 +13,7 @@ import TransformEnums from 'osg/transformEnums';
 import utils from 'osg/utils';
 
 var getCanvasCoord = function(vec, e) {
-    if (('ontouchstart' in window || navigator.maxTouchPoints || navigator.msMaxTouchPoints) && window.navigator.userAgent.indexOf('Edge') === -1) {
+    if (('ontouchstart' in window || navigator.maxTouchPoints || navigator.msMaxTouchPoints) && window.navigator.userAgent.indexOf('Edge') === -1 && e.type.includes('touch')) {
         var offset = e.target.getBoundingClientRect();
         vec[0] = e.changedTouches[ 0 ].clientX - offset.left;
         vec[1] = e.changedTouches[ 0 ].clientY;
@@ -264,17 +264,18 @@ utils.createPrototypeNode(
 
             var canvas = this._canvas;
             
+            // For all browsers except Microsoft Edge Legacy
             if (('ontouchstart' in window || navigator.maxTouchPoints || navigator.msMaxTouchPoints) && window.navigator.userAgent.indexOf('Edge') === -1) {
                 canvas.addEventListener( 'touchmove', this.onMouseMove.bind( this ) );
                 canvas.addEventListener( 'touchend', this.onMouseUp.bind( this ) );
                 canvas.addEventListener( 'touchcancel', this.onMouseUp.bind( this ) );
                 canvas.addEventListener( 'touchstart', this.onMouseDown.bind( this ) );
-            } else {
+            }
+            // For all browsers (So, we can use the mouse in touchable devices)
                 canvas.addEventListener('mousemove', this.onMouseMove.bind(this));
                 canvas.addEventListener('mousedown', this.onMouseDown.bind(this));
                 canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
                 canvas.addEventListener('mouseout', this.onMouseUp.bind(this));
-            }
         },
 
         _insertEditNode: function(parent, node) {
