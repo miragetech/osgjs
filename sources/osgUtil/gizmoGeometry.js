@@ -5,6 +5,7 @@ import DrawArrays from 'osg/DrawArrays';
 import DrawElements from 'osg/DrawElements';
 import Program from 'osg/Program';
 import Shader from 'osg/Shader';
+import Uniform from 'osg/Uniform';
 
 var glPrecision = ['#ifdef GL_ES', 'precision highp float;', '#endif'].join('\n');
 
@@ -93,13 +94,14 @@ var getOrCreateShaderQuadCircle = function() {
         glPrecision,
         'uniform float uAngle;',
         'uniform vec3 uBase;',
+        'uniform float uSize;',
         'varying vec3 vViewVertex;',
         'const float PI = 3.14159265358979323846264;',
         'const float PI2 = PI * 2.0;',
         shaderName,
         '',
         'void main(void) {',
-        '  if(length(vViewVertex) > 0.5)',
+        '  if(length(vViewVertex) > (uSize * 0.5))',
         '    discard;',
         '  vec3 vn = normalize(vViewVertex);',
         '  float angle = atan(uBase.y * vn.x - uBase.x * vn.y, dot(uBase, vn));',
@@ -342,9 +344,12 @@ var createPlaneGeometry = function(width, height) {
     return g;
 };
 
-var createQuadCircleGeometry = function() {
-    var g = createPlaneGeometry();
+var createQuadCircleGeometry = function(width, height) {
+    var g = createPlaneGeometry(width, height);
     g.getOrCreateStateSet().setAttributeAndModes(getOrCreateShaderQuadCircle());
+    if (width === undefined)
+        g.getOrCreateStateSet().addUniform(Uniform.createFloat(1.0, 'uSize'));
+
     return g;
 };
 
