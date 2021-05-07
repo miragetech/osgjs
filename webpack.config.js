@@ -12,51 +12,13 @@ var BUILD_PATH = path.join(ROOT_PATH, 'builds/dist/');
 var BUILD_TESTS_PATH = path.join(ROOT_PATH, 'builds/tests/');
 
 var resolve = {
-    modules: [SOURCES_PATH, VENDORS_PATH, ROOT_PATH, NODE_PATH]
+    modules: [SOURCES_PATH, VENDORS_PATH, ROOT_PATH, NODE_PATH],
+    alias: {
+        hammer: path.resolve(NODE_PATH, 'hammerjs/')
+    }
 };
 
-var externals = [
-    {
-        zlib: {
-            root: 'Zlib',
-            commonjs2: 'zlib',
-            commonjs: 'zlib',
-            amd: 'zlib'
-        }
-    },
-    {
-        bluebird: {
-            root: 'P',
-            commonjs2: 'bluebird',
-            commonjs: 'bluebird',
-            amd: 'bluebird'
-        }
-    },
-    {
-        hammer: {
-            root: 'Hammer',
-            commonjs2: 'hammerjs',
-            commonjs: 'hammerjs',
-            amd: 'hammer'
-        }
-    },
-    {
-        leap: {
-            root: 'Leap',
-            commonjs2: 'leapjs',
-            commonjs: 'leapjs',
-            amd: 'leap'
-        }
-    },
-    {
-        jquery: {
-            root: '$',
-            commonjs2: 'jquery',
-            commonjs: 'jquery',
-            amd: 'jquery'
-        }
-    }
-];
+var externals = [];
 
 var mainlibConfig = {
     entry: {
